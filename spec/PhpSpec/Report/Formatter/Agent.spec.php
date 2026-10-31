@@ -382,6 +382,18 @@ describe(Agent::class, function () {
         expect($doc['result']['passing'])->toBe(1);
     });
 
+    it('writes nothing once the run is handed to another process, not even as this one ends', function () {
+        $output = new BufferedOutput();
+        $end = new AgentSpecProcessEnd();
+        $formatter = new Agent($output, null, $end);
+
+        $formatter->handedOver();
+        $formatter->publish();
+        $end->arrives();
+
+        expect($output->fetch())->toBe('');
+    });
+
     it('publishes what it has when the process ends with no fatal', function () use ($stream) {
         $output = new BufferedOutput();
         $end = new AgentSpecProcessEnd();

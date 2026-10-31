@@ -39,15 +39,15 @@ final class JsonReportBuilder
      * Builds the tests and sources sections of the JSON coverage report.
      *
      * @param PerExampleCollector $collector the collector holding per-example coverage
-     * @param string $srcPath absolute path to the source directory to include
+     * @param list<string> $sources absolute paths to the source directories to include
      * @param string $projectRoot absolute path to the project root used to relativize paths
      * @return array{tests: array<string, array{time: float, memory: int, spec_file: string, spec_checksum: string}>, sources: array<string, array{checksum: string, lines: array<int, array<int, string>>, executable: list<int>, methods: array<string, array{start: int, end: int}>}>}
      */
-    public function build(PerExampleCollector $collector, string $srcPath, string $projectRoot): array
+    public function build(PerExampleCollector $collector, array $sources, string $projectRoot): array
     {
         return [
             'tests' => $this->buildTests($collector->getTests()),
-            'sources' => $this->buildSources($collector->getLines(), $srcPath, $projectRoot, $collector->getAggregate()),
+            'sources' => $this->buildSources($collector->getLines(), $sources, $projectRoot, $collector->getAggregate()),
         ];
     }
 
@@ -92,25 +92,27 @@ final class JsonReportBuilder
     }
 
     /**
-     * Filters covered files down to the source path, relativizes them against
+     * Filters covered files down to the source directories, relativizes them against
      * the project root and pairs each with a content checksum. Paths are
      * normalised to forward slashes on every platform (Xdebug and realpath()
      * report backslash paths on Windows).
      *
      * @param array<string, array<int, array<int, string>>> $lines file path => line number => test identifiers
-     * @param string $srcPath absolute path to the source directory to include
+     * @param list<string> $sources absolute paths to the source directories to include
      * @param string $projectRoot absolute path to the project root used to relativize paths
      * @param array<string, array<int, int>> $aggregate line hit values, for which lines were executable at all
      * @return array<string, array{checksum: string, lines: array<int, array<int, string>>, executable: list<int>, methods: array<string, array{start: int, end: int}>}>
      */
-    private function buildSources(array $lines, string $srcPath, string $projectRoot, array $aggregate = []): array
+    private function buildSources(array $lines, array $sources, string $projectRoot, array $aggregate = []): array
     {
-        $sourceRoot = ProjectRoot::at($srcPath);
+        $sourceRoots = array_map(ProjectRoot::at(...), $sources);
         $root = ProjectRoot::at($projectRoot);
         $sources = [];
 
         foreach ($lines as $file => $fileLines) {
-            if (!$sourceRoot->holds($file) || str_contains(str_replace('\\', '/', $file), "eval()'d code")) {
+            $held = array_filter($sourceRoots, static fn(ProjectRoot $source): bool => $source->holds($file));
+
+            if ($held === [] || str_contains(str_replace('\\', '/', $file), "eval()'d code")) {
                 continue;
             }
 

@@ -52,8 +52,8 @@ AI-powered, behaviour-preserving refactoring: a plan, then baby steps you
 approve one at a time, the whole spec suite checked after each.
 
 ```bash
-vendor/bin/phpspec refactor                                 # the source file modified last under src_path
-vendor/bin/phpspec refactor Calculator                      # the Calculator modified last under src_path
+vendor/bin/phpspec refactor                                 # the source file modified last
+vendor/bin/phpspec refactor Calculator                      # the Calculator modified last
 vendor/bin/phpspec refactor "App\Calculator"
 vendor/bin/phpspec refactor "App\Calculator::sum"
 vendor/bin/phpspec refactor src/App/Calculator.php
@@ -531,7 +531,7 @@ printf 'y\n' | SHELL_INTERACTIVE=1 vendor/bin/phpspec run   # answer the first q
 | `--coverage-html=DIR` | Generate HTML coverage report in the specified directory |
 | `--coverage-clover=FILE` | Generate Clover XML coverage report |
 | `--coverage-json=FILE` | Generate JSON coverage report with per-example detail (experimental) |
-| `--coverage-src=DIR` | Source directory to scope coverage reports to (overrides config `src_path`) |
+| `--coverage-src=DIR` | Source directory to scope coverage reports to, instead of every directory the project's classes are in |
 | `--coverage-min=PCT` | Fail if coverage is below the threshold (0-100) |
 
 ```bash
@@ -548,8 +548,10 @@ coverage mode (`xdebug.mode=coverage`). With nothing named in the config, the
 run takes PCOV when it is enabled, else Xdebug;
 [`coverage_adapter`](configuration.md#coverage_adapter) names one. A run that
 cannot collect says which engine it needs and the command that switches it on.
-Xdebug records only the source directory and the directories guard reads,
-from the moment the run starts collecting; PCOV records its `pcov.directory`.
+Xdebug records only the source directories and the directories guard reads,
+from the moment the run starts collecting; PCOV records its `pcov.directory`,
+and a run reporting on a directory outside it runs itself again with a
+`pcov.directory` that holds them all.
 
 A line counts as covered when an example or a scenario runs it. That includes
 an example's `this` bindings and `beforeEach`/`afterEach` hooks, a scenario's

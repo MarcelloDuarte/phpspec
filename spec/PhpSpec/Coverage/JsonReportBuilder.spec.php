@@ -34,7 +34,7 @@ describe(JsonReportBuilder::class, function () {
         allow($filesystem->exists(any()))->toReturn(true);
         allow($filesystem->read(any()))->toReturn($source);
 
-        $report = (new JsonReportBuilder($filesystem, new Exclusions(['App\\Calculator::sub'], $filesystem, '/project')))->build($collector, '/project/src', '/project');
+        $report = (new JsonReportBuilder($filesystem, new Exclusions(['App\\Calculator::sub'], $filesystem, '/project')))->build($collector, ['/project/src'], '/project');
 
         expect($report['sources']['src/App/Calculator.php']['lines'])->toBe([7 => ['spec/App/Calculator.spec.php::adds']]);
         expect($report['sources']['src/App/Calculator.php']['executable'])->toBe([7]);
@@ -47,7 +47,7 @@ describe(JsonReportBuilder::class, function () {
         );
         $builder = new JsonReportBuilder($filesystem);
 
-        $report = $builder->build($this->collector, '/project/src', '/project');
+        $report = $builder->build($this->collector, ['/project/src'], '/project');
 
         expect($report['sources'])->toBe([
             'src/App/Calculator.php' => [
@@ -64,13 +64,21 @@ describe(JsonReportBuilder::class, function () {
         ]);
     });
 
+    it('keeps the sources under every source directory it is given', function (Filesystem $filesystem) {
+        allow($filesystem->read(any()))->toReturn('source code');
+
+        $report = (new JsonReportBuilder($filesystem))->build($this->collector, ['/project/src', '/project/vendor/lib'], '/project');
+
+        expect(array_keys($report['sources']))->toBe(['src/App/Calculator.php', 'vendor/lib/functions.php']);
+    });
+
     // A mutation testing tool mutates one method and re-runs the examples that
     // covered it, so it has to know where that method starts and stops.
     it('says which lines each method of a source spans', function (Filesystem $filesystem) {
         allow($filesystem->read(any()))->toReturn("<?php\n\nclass Calculator\n{\n    public function add(int \$a, int \$b): int\n    {\n        return \$a + \$b;\n    }\n}\n");
         $builder = new JsonReportBuilder($filesystem);
 
-        $report = $builder->build($this->collector, '/project/src', '/project');
+        $report = $builder->build($this->collector, ['/project/src'], '/project');
 
         expect($report['sources']['src/App/Calculator.php']['methods'])->toBe([
             'add' => ['start' => 5, 'end' => 8],
@@ -89,7 +97,7 @@ describe(JsonReportBuilder::class, function () {
         $collector->endExample('adds');
         $builder = new JsonReportBuilder($filesystem);
 
-        $report = $builder->build($collector, 'C:\\project\\src', 'C:\\project');
+        $report = $builder->build($collector, ['C:\\project\\src'], 'C:\\project');
 
         expect($report['sources'])->toHaveKey('src/App/Calculator.php');
         expect($report['tests'])->toHaveKey('spec/App/Calculator.spec.php::adds');
@@ -101,7 +109,7 @@ describe(JsonReportBuilder::class, function () {
         );
         $builder = new JsonReportBuilder($filesystem);
 
-        $report = $builder->build($this->collector, '/project/src', '/project');
+        $report = $builder->build($this->collector, ['/project/src'], '/project');
 
         $test = $report['tests']['spec/App/Calculator.spec.php::Calculator > adds two numbers'];
         expect($test['spec_file'])->toBe('spec/App/Calculator.spec.php');

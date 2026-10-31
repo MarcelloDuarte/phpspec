@@ -348,13 +348,13 @@ describe(Run::class, function () {
         });
 
         it('PSR-4 autoloader loads matching class from filesystem', function (Filesystem $execFs) {
-            $tmpDir = sys_get_temp_dir();
+            $root = sys_get_temp_dir() . '/phpspec_run_autoload_' . uniqid();
             $ns = 'PhpSpecAutoloadTest' . uniqid() . '\\';
             $className = 'TestClass';
-            $file = $tmpDir . '/' . $className . '.php';
-            file_put_contents($file, '<?php namespace ' . rtrim($ns, '\\') . '; class ' . $className . ' {}');
+            mkdir($root . '/lib', 0777, true);
+            file_put_contents($root . '/lib/' . $className . '.php', '<?php namespace ' . rtrim($ns, '\\') . '; class ' . $className . ' {}');
 
-            $config = new Configuration(['autoload' => [$ns => $tmpDir . '/']]);
+            $config = new Configuration(['autoload' => [$ns => 'lib/']], $root);
             $cmd = new Run(new Loader($execFs), new Runner(), $config);
 
             $tester = new \Symfony\Component\Console\Tester\CommandTester($cmd);
@@ -362,7 +362,9 @@ describe(Run::class, function () {
 
             $fqcn = $ns . $className;
             $loaded = class_exists($fqcn, true);
-            unlink($file);
+            unlink($root . '/lib/' . $className . '.php');
+            rmdir($root . '/lib');
+            rmdir($root);
             expect($loaded)->toBeTrue();
         });
 

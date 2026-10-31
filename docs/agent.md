@@ -389,9 +389,12 @@ green before you replace the fakes with real logic.
 
 The summary of such a run says what was written, in `applied`: each piece
 under the id its offer carried, the files it changed, and `verified: false`,
-because the counts on the same line describe the code before the writing.
+because the counts on the same line describe the code before the writing. A
+class written where `composer.json` autoloads no classes changes
+`composer.json` too, which then needs a `composer dumpautoload`; see
+[Code Generation](code-generation.md#where-generated-classes-go).
 Run again to verify; the exit code of `0` says the offers were applied, not
-that the suite is green.
+that the suite is green, and `1` that one could not be.
 
 `generate` proposes rather than writes: its receipt carries an `id` per
 proposal with `applied: false`, and `accept` writes exactly the content that was
@@ -589,7 +592,7 @@ Prefer letting PhpSpec generate boilerplate over writing it by hand:
   `vendor/bin/phpspec run --accept-offers --fake`
 - The summary of an `--accept-offers` run carries `applied`: what was written,
   by file. Its counts describe the run before the writing, so run again to
-  verify; exit code 0 means applied, not green.
+  verify; exit code 0 means applied, not green, and 1 that an offer was not.
 
 `--fake` produces hardcoded returns to reach green quickly; always replace them
 with real logic before considering the work done. Offers are suggestions, not
@@ -608,8 +611,8 @@ commands: skip any that don't fit the design.
 
 Unchanged from every other formatter: `1` when an example or scenario fails or
 errors, when a coverage gate is missed, or when guard finds untested logic;
-`0` otherwise, pending examples included. `--accept-offers` exits `0` after
-applying offers.
+`0` otherwise, pending examples included. `--accept-offers` exits `0` once
+every offer is applied, and `1` when one could not be.
 
 ## See also
 

@@ -48,6 +48,7 @@ use PhpSpec\Offers\Offer;
 use PhpSpec\Offers\OfferBook;
 use PhpSpec\Parallel\ParallelRunner;
 use PhpSpec\Parallel\WireFormatter;
+use PhpSpec\Process\ChildPhp;
 use PhpSpec\RealFilesystem;
 use PhpSpec\Report\Formatter;
 use PhpSpec\Report\Formatter\Agent;
@@ -330,6 +331,14 @@ final class Run extends Command implements InternalOptions
             $formatter->runningWith($coverageReporter instanceof CoverageReporter, $guard !== null ? 'on' : 'off');
         }
 
+        if ($coverageReporter instanceof CoverageRefusal && $coverageReporter->restart !== []) {
+            if ($formatter instanceof Agent) {
+                $formatter->handedOver();
+            }
+
+            return $this->runAgainUnder($coverageReporter->restart);
+        }
+
         if ($coverageReporter instanceof CoverageRefusal) {
             if ($guard === null || $this->wantsCoverage($input)) {
                 return $this->refused($prose, $formatter, $coverageReporter);
@@ -426,7 +435,7 @@ final class Run extends Command implements InternalOptions
                 $formatter->applied($applied);
             }
 
-            return 0;
+            return array_filter($applied, static fn(array $one): bool => !$one['applied']) === [] ? self::SUCCESS : self::FAILURE;
         }
 
         // When pair mode spawned this run (it sets an env var naming a report
@@ -774,10 +783,9 @@ final class Run extends Command implements InternalOptions
      */
     private function tracedDirectories(Input $input, ?Inspection $guard): array
     {
-        $source = $input->getOption('coverage-src') ?? $this->config->getSrcPath();
         $guarded = $guard === null ? [] : ($this->config->getGuardConfig()['paths'] ?? []);
 
-        return array_values(array_unique([(string) $source, ...$guarded]));
+        return array_values(array_unique([...$this->coverageSources($input), ...$guarded]));
     }
 
     /**
@@ -1241,7 +1249,7 @@ final class Run extends Command implements InternalOptions
         }
 
         return $reporter->report($output, new CoverageOptions(
-            srcPath: $input->getOption('coverage-src') ?? $this->config->getSrcPath(),
+            sources: $this->coverageSources($input),
             showText: (bool) $input->getOption('coverage'),
             cloverPath: $input->getOption('coverage-clover'),
             htmlPath: $input->getOption('coverage-html'),
@@ -1249,6 +1257,39 @@ final class Run extends Command implements InternalOptions
             coverageMin: $input->getOption('coverage-min'),
             partialPath: $input->getOption('coverage-partial'),
         ));
+    }
+
+    /**
+     * Runs this run again in a php set up as this one and started with the
+     * arguments, its input and output this one's, and answers with its exit
+     * code. The run started is told so, and never starts another.
+     *
+     * @param list<string> $arguments php options, then the command
+     */
+    private function runAgainUnder(array $arguments): int
+    {
+        $process = proc_open(
+            [PHP_BINARY, ...(new ChildPhp())->options(), ...$arguments],
+            [0 => STDIN, 1 => STDOUT, 2 => STDERR],
+            $pipes,
+            null,
+            [...getenv(), CoverageEngines::RESTARTED => '1'],
+        );
+
+        return is_resource($process) ? proc_close($process) : self::FAILURE;
+    }
+
+    /**
+     * The directories coverage reports on: the one --coverage-src names, else
+     * every directory the project's classes are in.
+     *
+     * @return list<string>
+     */
+    private function coverageSources(Input $input): array
+    {
+        $named = $input->getOption('coverage-src');
+
+        return is_string($named) ? [$named] : $this->config->sourceRoots();
     }
 
     /**
@@ -1314,6 +1355,7 @@ final class Run extends Command implements InternalOptions
             $generation,
             $this->config->getSpecSuffix(),
             steps: new StepsHome($this->config),
+            composer: $this->config->composerJson(),
         );
     }
 }

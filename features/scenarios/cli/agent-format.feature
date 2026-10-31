@@ -879,6 +879,32 @@ Feature: Agent output format
     When I accept the offers phpspec made
     Then a class file "src/App/Coupon.php" should be generated
 
+  Scenario: Taking a class offer where composer.json autoloads no classes maps them there, and the receipt names composer.json
+    Given no phpspec.json config
+    And a file "composer.json":
+      """
+      {"name": "acme/kata"}
+      """
+    And a spec file "spec/Pins.spec.php":
+      """
+      <?php
+      describe('Pins', function () {
+          it('stand ten', function () {
+              expect(new Pins())->toBeAnInstanceOf(Pins::class);
+          });
+      });
+      """
+    When I run phpspec run in a fresh process with option "--format=agent"
+    And I accept the offers phpspec made with option "--format=agent"
+    Then the output should contain:
+      """
+      "files":["src/Pins.php","composer.json"]
+      """
+    And the file "composer.json" should contain:
+      """
+      "": "src/"
+      """
+
   Scenario: A missing method surfaces as an offer, and accept by id writes it
     Given a class "src/App/Calc.php":
       """

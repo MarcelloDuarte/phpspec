@@ -300,6 +300,15 @@ final class Agent extends AbstractFormatter
     }
 
     /**
+     * Leaves the document to the process this run was handed to, which writes
+     * the whole of it: this one writes none, not even as it ends.
+     */
+    public function handedOver(): void
+    {
+        $this->published = true;
+    }
+
+    /**
      * Closes the stream, once. Every path out of the command comes through
      * here, so the last line an agent reads is always the summary whether the
      * run finished, failed its coverage gate, or died: calling it twice is a
